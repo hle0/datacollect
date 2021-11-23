@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "datacollect",
+    "datacollect-cli"
+]
