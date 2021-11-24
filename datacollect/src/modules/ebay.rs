@@ -72,6 +72,7 @@ impl DataProcessor<Product, u64> for EbayItemSource {
                 .unwrap();
             let link = format!("https://www.ebay.com/usr/{}", name);
             let rating: Option<Rating> = try {
+                /* TODO: work on sold eBay listings (e.g. 255166134948) */
                 let text = seller_info
                     .as_node()
                     .select_first("#si-fb")
@@ -93,6 +94,7 @@ impl DataProcessor<Product, u64> for EbayItemSource {
         };
 
         let price: Option<Price> = try {
+            /* TODO: work on sold eBay listings (e.g. 255166134948) */
             let main_price = document.select_first(".mainPrice").ok()?;
 
             let unit = Currency::from_abbreviation({
@@ -119,5 +121,50 @@ impl DataProcessor<Product, u64> for EbayItemSource {
             price,
             seller,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::common::DataProcessor;
+
+    use super::EbayItemSource;
+
+    #[tokio::test]
+    async fn test_processor() {
+        let mut proc = EbayItemSource::new().unwrap();
+        let prod = proc
+            .process(254625474154, crate::common::Depth::Default)
+            .await
+            .unwrap();
+        assert_eq!(
+            prod.seller.as_ref().unwrap().name.as_ref().unwrap(),
+            "bellwetherbooks_usa"
+        );
+        assert!(
+            prod.seller
+                .as_ref()
+                .unwrap()
+                .rating
+                .as_ref()
+                .unwrap()
+                .fraction
+                > 0.9
+        );
+        assert!(
+            prod.seller
+                .as_ref()
+                .unwrap()
+                .rating
+                .as_ref()
+                .unwrap()
+                .fraction
+                < 1.0
+        );
+        assert!(prod
+            .name
+            .as_ref()
+            .unwrap()
+            .contains("Rust Programming Language"));
     }
 }

@@ -102,3 +102,21 @@ impl DataProducer<Vec<CPU>> for PassmarkCPUDataSource {
         Ok(data)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::common::DataProducer;
+
+    use super::PassmarkCPUDataSource;
+
+    #[tokio::test]
+    async fn test_producer() {
+        let mut src = PassmarkCPUDataSource::new().unwrap();
+        let cpus = src.produce(crate::common::Depth::Default).await.unwrap();
+        let my_cpu = cpus
+            .iter()
+            .find(|cpu| cpu.name == "AMD Ryzen 5 2600")
+            .unwrap();
+        assert_eq!(my_cpu.tdp, Some(65));
+    }
+}

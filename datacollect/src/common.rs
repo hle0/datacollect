@@ -74,6 +74,6 @@ pub(crate) fn parse_dollars<T: AsRef<str>>(s: T) -> Option<u32> {
 fn test_parse_dollars() {
     assert_eq!(parse_dollars("$312.04").unwrap(), 31204);
     assert_eq!(parse_dollars("8.8.4.4"), None);
-    assert_eq!(parse_dollars("42").unwrap(), 42);
+    assert_eq!(parse_dollars("42").unwrap(), 4200);
     assert_eq!(parse_dollars("$42.567").unwrap(), 4256);
 }
