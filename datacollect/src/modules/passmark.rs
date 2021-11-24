@@ -1,137 +1,77 @@
-use async_trait::async_trait;
-use maplit::hashmap;
-use serde::Deserialize;
-use tokio::sync::Mutex;
+use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DefaultOnError, DisplayFromStr, PickFirst};
 
-use crate::{
-    common::{parse_dollars, DataProducer, Depth},
-    schemas::{
-        computing::{CPUBenchmark, CPUBenchmarkMetric, CPU},
-        money::{Currency, Price},
-    },
-};
-use reqwest::Client;
-use std::convert::TryInto;
+use crate::common::{Client, IgnoreComma, Money};
 
-pub struct PassmarkCPUDataSource {
-    client: Client,
-    initialized: Mutex<bool>,
-}
-
-impl PassmarkCPUDataSource {
-    /// Create a new instance.
-    ///
-    /// # Errors
-    /// Errors if the [`reqwest::Client`] couldn't be built.
-    pub fn new() -> anyhow::Result<Self> {
-        Ok(Self {
-            client: Client::builder().cookie_store(true).build()?,
-            initialized: Mutex::new(false),
-        })
-    }
-}
-
-#[derive(Deserialize)]
-struct RawCPUBenchmark {
-    pub id: String,
+#[serde_as]
+#[derive(Deserialize, Serialize)]
+pub struct CPU {
+    #[serde_as(as = "PickFirst<(_, DisplayFromStr)>")]
+    pub id: u32,
     pub name: String,
-    pub price: String,
-    pub cpumark: String,
-    pub thread: String,
+    #[serde(default)]
+    #[serde_as(as = "DefaultOnError<PickFirst<(_, Option<IgnoreComma<Money>>)>>")]
+    pub price: Option<Money>,
+    #[serde(default)]
+    #[serde_as(as = "DefaultOnError<PickFirst<(_, Option<IgnoreComma<u32>>)>>")]
+    pub cpumark: Option<u32>,
+    #[serde(default)]
+    #[serde_as(as = "DefaultOnError<PickFirst<(_, Option<IgnoreComma<u32>>)>>")]
+    pub thread: Option<u32>,
     pub socket: String,
     pub cat: String,
-    pub cores: String,
-    pub logicals: String,
-    pub tdp: String,
+    #[serde(default)]
+    #[serde_as(as = "DefaultOnError<PickFirst<(_, Option<DisplayFromStr>)>>")]
+    pub cores: Option<u32>,
+    #[serde(default)]
+    #[serde_as(as = "DefaultOnError<PickFirst<(_, Option<DisplayFromStr>)>>")]
+    pub logicals: Option<u32>,
+    #[serde_as(as = "DefaultOnError<PickFirst<(_, Option<DisplayFromStr>)>>")]
+    pub tdp: Option<f64>,
 }
 
-impl std::convert::TryInto<CPU> for RawCPUBenchmark {
-    type Error = anyhow::Error;
-    fn try_into(self) -> anyhow::Result<CPU> {
-        Ok(CPU {
-            passmark_id: Some(self.id.parse()?),
-            benchmarks: {
-                let benchmarks: anyhow::Result<_> = try {
-                    hashmap! {
-                        CPUBenchmarkMetric::Passmark => CPUBenchmark {
-                            overall: self.cpumark.replace(",", "").parse()?,
-                            thread: self.thread.replace(",", "").parse().ok(),
-                        }
-                    }
-                };
-
-                benchmarks
-                    .map_err(|_| std::collections::HashMap::default())
-                    .into_ok_or_err()
-            },
-            name: self.name,
-            socket: Some(self.socket),
-            sector: Some(self.cat),
-            cores: self.cores.replace(",", "").parse().ok(),
-            logicals: self.logicals.replace(",", "").parse().ok(),
-            price: try {
-                Price {
-                    unit: Currency::USD,
-                    amount: f64::from(parse_dollars(self.price)?) / 100.0,
-                }
-            },
-            tdp: self.tdp.replace(",", "").parse().ok(),
-        })
-    }
+#[derive(Serialize, Deserialize)]
+pub struct CPUMegaList {
+    data: Vec<CPU>,
 }
 
-#[derive(Deserialize)]
-pub struct RawCPUBenchmarkJSONContainer {
-    data: Vec<RawCPUBenchmark>,
-}
+impl CPUMegaList {
+    pub async fn get(client: &mut Client<true>) -> anyhow::Result<Self> {
+        /* there's a session cookie we need here */
+        client
+            .0
+            .get("https://www.cpubenchmark.net/CPU_mega_page.html")
+            .send()
+            .await?;
 
-#[async_trait]
-impl DataProducer<Vec<CPU>> for PassmarkCPUDataSource {
-    async fn produce(&mut self, _depth: Depth) -> anyhow::Result<Vec<CPU>> {
-        {
-            let mut inited = self.initialized.lock().await;
-            if !*inited {
-                /* there's a session cookie we need here */
-                self.client
-                    .get("https://www.cpubenchmark.net/CPU_mega_page.html")
-                    .send()
-                    .await?;
-                *inited = true;
-            }
-        }
-
-        let res = self
-            .client
+        let res = client
+            .0
             .get("https://www.cpubenchmark.net/data/")
             .header("X-Requested-With", "XMLHttpRequest")
             .send()
             .await?;
-        let json: RawCPUBenchmarkJSONContainer = res.json().await?;
-        let data: Vec<CPU> = json
-            .data
-            .into_iter()
-            .map(RawCPUBenchmark::try_into)
-            .filter(Result::is_ok)
-            .map(Result::unwrap)
-            .collect::<Vec<CPU>>();
-        Ok(data)
+        //println!("{}", res.text().await?);
+        let json: Self = res.json().await?;
+        Ok(json)
+        //anyhow::bail!("fail");
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::common::DataProducer;
+    use crate::common::Client;
 
-    use super::PassmarkCPUDataSource;
+    use super::CPUMegaList;
 
     #[tokio::test]
     async fn test_producer() {
-        let mut src = PassmarkCPUDataSource::new().unwrap();
-        let cpus = src.produce(crate::common::Depth::Default).await.unwrap();
+        let mut client = Client::<true>::default();
+        let cpus = CPUMegaList::get(&mut client).await.unwrap();
         let my_cpu = cpus
+            .data
             .iter()
             .find(|cpu| cpu.name == "AMD Ryzen 5 2600")
             .unwrap();
-        assert_eq!(my_cpu.tdp, Some(65));
+        assert_eq!(my_cpu.tdp, Some(65.0));
     }
 }
