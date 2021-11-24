@@ -21,14 +21,14 @@ pub struct Price {
     pub amount: f64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct Seller {
     pub link: Option<String>,
     pub name: Option<String>,
     pub rating: Option<Rating>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Default)]
 pub struct Product {
     pub link: Option<String>,
     pub price: Option<Price>,

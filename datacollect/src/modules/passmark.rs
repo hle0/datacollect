@@ -1,11 +1,12 @@
 use async_trait::async_trait;
+use maplit::hashmap;
 use serde::Deserialize;
 use tokio::sync::Mutex;
 
 use crate::{
     common::{parse_dollars, DataProducer, Depth},
     schemas::{
-        computing::{CPUBenchmark, CPU},
+        computing::{CPUBenchmark, CPUBenchmarkMetric, CPU},
         money::{Currency, Price},
     },
 };
@@ -19,7 +20,7 @@ pub struct PassmarkCPUDataSource {
 
 impl PassmarkCPUDataSource {
     /// Create a new instance.
-    /// 
+    ///
     /// # Errors
     /// Errors if the [`reqwest::Client`] couldn't be built.
     pub fn new() -> anyhow::Result<Self> {
@@ -49,11 +50,21 @@ impl std::convert::TryInto<CPU> for RawCPUBenchmark {
     fn try_into(self) -> anyhow::Result<CPU> {
         Ok(CPU {
             passmark_id: Some(self.id.parse()?),
+            benchmarks: {
+                let benchmarks: anyhow::Result<_> = try {
+                    hashmap! {
+                        CPUBenchmarkMetric::Passmark => CPUBenchmark {
+                            overall: self.cpumark.replace(",", "").parse()?,
+                            thread: self.thread.replace(",", "").parse().ok(),
+                        }
+                    }
+                };
+
+                benchmarks
+                    .map_err(|_| std::collections::HashMap::default())
+                    .into_ok_or_err()
+            },
             name: self.name,
-            benchmarks: vec![CPUBenchmark::Passmark {
-                total: self.cpumark.replace(",", "").parse().ok(),
-                thread: self.thread.replace(",", "").parse().ok(),
-            }],
             socket: Some(self.socket),
             sector: Some(self.cat),
             cores: self.cores.replace(",", "").parse().ok(),

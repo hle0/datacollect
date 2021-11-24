@@ -13,7 +13,7 @@ pub struct EbayItemSource {
 
 impl EbayItemSource {
     /// Creates a new instance.
-    /// 
+    ///
     /// # Errors
     /// Errors if the [`reqwest::Client`] could not be created.
     pub fn new() -> anyhow::Result<Self> {
