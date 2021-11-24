@@ -12,6 +12,10 @@ pub struct EbayItemSource {
 }
 
 impl EbayItemSource {
+    /// Creates a new instance.
+    /// 
+    /// # Errors
+    /// Errors if the [`reqwest::Client`] could not be created.
     pub fn new() -> anyhow::Result<Self> {
         Ok(Self {
             client: Client::builder().build()?,
@@ -50,7 +54,7 @@ impl DataProcessor<Product, u64> for EbayItemSource {
                         Some(s.trim().to_string())
                     }
                 })
-                .find(|o| o.is_some())?
+                .find(Option::is_some)?
                 .unwrap()
         };
 
@@ -68,7 +72,7 @@ impl DataProcessor<Product, u64> for EbayItemSource {
                     let username = RE_USR.captures(href.as_str())?.get(1)?.as_str().to_string();
                     Some(username)
                 })
-                .find(|o| o.is_some())?
+                .find(Option::is_some)?
                 .unwrap();
             let link = format!("https://www.ebay.com/usr/{}", name);
             let rating: Option<Rating> = try {

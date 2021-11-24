@@ -18,6 +18,10 @@ pub struct PassmarkCPUDataSource {
 }
 
 impl PassmarkCPUDataSource {
+    /// Create a new instance.
+    /// 
+    /// # Errors
+    /// Errors if the [`reqwest::Client`] couldn't be built.
     pub fn new() -> anyhow::Result<Self> {
         Ok(Self {
             client: Client::builder().cookie_store(true).build()?,
@@ -57,7 +61,7 @@ impl std::convert::TryInto<CPU> for RawCPUBenchmark {
             price: try {
                 Price {
                     unit: Currency::USD,
-                    amount: parse_dollars(self.price)? as f64 / 100.0,
+                    amount: f64::from(parse_dollars(self.price)?) / 100.0,
                 }
             },
             tdp: self.tdp.replace(",", "").parse().ok(),
@@ -95,9 +99,9 @@ impl DataProducer<Vec<CPU>> for PassmarkCPUDataSource {
         let data: Vec<CPU> = json
             .data
             .into_iter()
-            .map(|bench| bench.try_into())
-            .filter(|result| result.is_ok())
-            .map(|result| result.unwrap())
+            .map(RawCPUBenchmark::try_into)
+            .filter(Result::is_ok)
+            .map(Result::unwrap)
             .collect::<Vec<CPU>>();
         Ok(data)
     }
