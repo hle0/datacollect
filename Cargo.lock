@@ -255,6 +255,7 @@ name = "datacollect-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "clap",
  "datacollect",
  "erased-serde",

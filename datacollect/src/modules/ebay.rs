@@ -88,7 +88,10 @@ impl Product {
 
             let price: Option<(Currency, f64)> = try {
                 /* TODO: work on sold eBay listings (e.g. 255166134948) */
-                let main_price = document.select_first(".mainPrice").ok()?;
+                let main_price = document
+                    .select_first(".mainPrice")
+                    .or_else(|_| document.select_first(".vi-price"))
+                    .ok()?;
 
                 let unit = Currency::from_abbreviation({
                     let price_currency = main_price
