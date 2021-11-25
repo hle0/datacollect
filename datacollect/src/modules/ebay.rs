@@ -1,9 +1,14 @@
+use std::convert::TryInto;
+
 use anyhow::Context;
 use kuchiki::traits::TendrilSink;
 use lazy_static::lazy_static;
 use serde::Serialize;
 
-use crate::common::{Client, Currency};
+use crate::{
+    common::{Client, Money},
+    schema_org::Scope,
+};
 
 #[derive(Serialize)]
 pub struct Seller {
@@ -15,7 +20,7 @@ pub struct Seller {
 pub struct Product {
     pub name: String,
     pub seller: Option<Seller>,
-    pub price: Option<(Currency, f64)>,
+    pub price: Option<Money>,
 }
 
 impl Product {
@@ -87,29 +92,15 @@ impl Product {
                 Seller { name, feedback }
             };
 
-            let price: Option<(Currency, f64)> = try {
+            let price: Option<Money> = try {
                 /* TODO: work on sold eBay listings (e.g. 255166134948) */
                 let main_price = document
                     .select_first(".mainPrice")
                     .or_else(|_| document.select_first(".vi-price"))
                     .ok()?;
 
-                let unit = Currency::from_abbreviation({
-                    let price_currency = main_price
-                        .as_node()
-                        .select_first("[itemprop=priceCurrency]")
-                        .ok()?;
-                    let attributes = price_currency.attributes.borrow();
-                    attributes.get("content")?.to_string()
-                })?;
-
-                let amount = {
-                    let price_prop = main_price.as_node().select_first("[itemprop=price]").ok()?;
-                    let attributes = price_prop.attributes.borrow();
-                    attributes.get("content")?.parse::<f64>().ok()?
-                };
-
-                (unit, amount)
+                let scope = Scope::from(main_price.as_node().clone());
+                scope.try_into().ok()?
             };
 
             Self {

@@ -1,7 +1,7 @@
-use anyhow::{anyhow, bail};
+use anyhow::{anyhow, bail, Context};
 use serde::{de::Visitor, Deserialize, Serialize};
 use serde_with::{DeserializeAs, DeserializeFromStr, SerializeDisplay};
-use std::{fmt::Display, marker::PhantomData, str::FromStr};
+use std::{convert::TryFrom, fmt::Display, marker::PhantomData, str::FromStr};
 
 #[derive(SerializeDisplay, DeserializeFromStr)]
 pub enum Currency {
@@ -85,6 +85,24 @@ impl FromStr for Money {
             .find_map(|s| (!s.is_empty()).then(|| parse_dollars(s)).flatten())
             .ok_or_else(|| anyhow!("failed to find price"))?;
         Ok(Self(cur, price))
+    }
+}
+
+impl TryFrom<crate::schema_org::Scope> for Money {
+    type Error = anyhow::Error;
+    fn try_from(scope: crate::schema_org::Scope) -> anyhow::Result<Self> {
+        let price = scope
+            .get_value("price")
+            .context("could not get price of item through schema.org microdata")?;
+        if let Some(cur) = scope
+            .get_value("priceCurrency")
+            .and_then(Currency::from_abbreviation)
+        {
+            let dollars = parse_dollars(price).context("could not parse currency amount")?;
+            Ok(Self(cur, dollars))
+        } else {
+            Self::from_str(&price)
+        }
     }
 }
 
