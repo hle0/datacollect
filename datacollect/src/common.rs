@@ -12,18 +12,20 @@ impl Currency {
     pub fn from_price<S: AsRef<str>>(s: S) -> Option<Self> {
         s.as_ref()
             .split(|c: char| c.is_whitespace() || c.is_numeric())
-            .filter(|s| !s.is_empty())
-            .map(Self::from_abbreviation)
-            .find(Option::is_some)?
+            .find_map(|s| {
+                (!s.is_empty())
+                    .then(|| Self::from_abbreviation(s))
+                    .flatten()
+            })
     }
 
     pub fn from_abbreviation<S: AsRef<str>>(s: S) -> Option<Self> {
         match s
             .as_ref()
             .chars()
+            .flat_map(char::to_lowercase)
             .filter(|c| c.is_alphabetic())
             .collect::<String>()
-            .to_lowercase()
             .as_str()
         {
             "" | "us" | "usd" => Some(Self::USD),
@@ -59,28 +61,15 @@ impl Display for Currency {
  * "$312.03" -> 312.03
  * "312.03"  -> 312.03
  * "312"     -> 312.0
- * "312.009" -> 312.009 (truncated)
+ * "312.009" -> 312.009
  */
 pub(crate) fn parse_dollars<T: AsRef<str>>(s: T) -> Option<f64> {
-    let s = s.as_ref().to_string();
-    if s.is_empty() || s.chars().filter(|c| *c == '.').count() > 1 {
-        None
-    } else {
-        let mut i = s.split('.');
-        let first = i.next()?.chars().filter(|c| c.is_numeric());
-        let last = i
-            .next()
-            .filter(|x| !x.is_empty())
-            .unwrap_or("0")
-            .chars()
-            .take(2);
-        first
-            .chain(".".chars())
-            .chain(last)
-            .collect::<String>()
-            .parse::<f64>()
-            .ok()
-    }
+    s.as_ref()
+        .chars()
+        .filter(|c| c.is_numeric() || *c == '.')
+        .collect::<String>()
+        .parse::<f64>()
+        .ok()
 }
 
 #[derive(Serialize, Deserialize)]
@@ -93,11 +82,8 @@ impl FromStr for Money {
         let cur = Currency::from_price(s).unwrap_or(Currency::USD);
         let price = s
             .split(char::is_whitespace)
-            .filter(|s| !s.is_empty())
-            .map(parse_dollars)
-            .find(Option::is_some)
-            .ok_or_else(|| anyhow!("failed to find price"))?
-            .unwrap();
+            .find_map(|s| (!s.is_empty()).then(|| parse_dollars(s)).flatten())
+            .ok_or_else(|| anyhow!("failed to find price"))?;
         Ok(Self(cur, price))
     }
 }
@@ -204,6 +190,6 @@ mod tests {
         assert_eq!(parse_dollars("$312.04").unwrap(), 312.04);
         assert_eq!(parse_dollars("8.8.4.4"), None);
         assert_eq!(parse_dollars("42").unwrap(), 42.00);
-        assert_eq!(parse_dollars("$42.567").unwrap(), 42.56);
+        assert_eq!(parse_dollars("$42.567").unwrap(), 42.567);
     }
 }

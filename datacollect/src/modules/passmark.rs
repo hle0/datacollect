@@ -36,6 +36,10 @@ pub struct CPUMegaList {
 }
 
 impl CPUMegaList {
+    /// Get the big list of CPU's from Passmark's website.
+    ///
+    /// # Errors
+    /// Errors if one of the requests failed, or if parsing one of the responses failed.
     pub async fn get(client: &mut Client<true>) -> anyhow::Result<Self> {
         /* there's a session cookie we need here */
         client
@@ -50,10 +54,9 @@ impl CPUMegaList {
             .header("X-Requested-With", "XMLHttpRequest")
             .send()
             .await?;
-        //println!("{}", res.text().await?);
+
         let json: Self = res.json().await?;
         Ok(json)
-        //anyhow::bail!("fail");
     }
 }
 

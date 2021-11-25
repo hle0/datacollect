@@ -19,6 +19,10 @@ pub struct Product {
 }
 
 impl Product {
+    /// Find an eBay product using it's item ID.
+    ///
+    /// # Errors
+    /// Errors if one of the requests failed, or if one of the responses could not be parsed.
     pub async fn by_id(client: &mut Client<false>, id: u64) -> anyhow::Result<Self> {
         lazy_static! {
             static ref RE_USR: regex::Regex =
@@ -42,17 +46,16 @@ impl Product {
                     .context("trying to get title")?
                     .as_node()
                     .children()
-                    .map(|node| {
+                    .find_map(|node| {
                         let s = node.as_text()?.borrow();
-                        if s.trim().is_empty() {
+                        let s = s.trim();
+                        if s.is_empty() {
                             None
                         } else {
-                            Some(s.trim().to_string())
+                            Some(s.to_string())
                         }
                     })
-                    .find(Option::is_some)
                     .context("trying to get title")?
-                    .unwrap()
             };
 
             let seller: Option<Seller> = try {
@@ -61,16 +64,14 @@ impl Product {
                     .as_node()
                     .select("a[href]")
                     .ok()?
-                    .map(|a| {
+                    .find_map(|a| {
                         let href = {
                             let attributes = a.attributes.borrow();
                             attributes.get("href")?.to_string()
                         };
                         let username = RE_USR.captures(href.as_str())?.get(1)?.as_str().to_string();
                         Some(username)
-                    })
-                    .find(Option::is_some)?
-                    .unwrap();
+                    })?;
                 let feedback: Option<f64> = try {
                     /* TODO: work on sold eBay listings (e.g. 255166134948) */
                     let text = seller_info
@@ -113,8 +114,8 @@ impl Product {
 
             Self {
                 name,
-                price,
                 seller,
+                price,
             }
         };
 

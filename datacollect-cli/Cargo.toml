@@ -1,6 +1,3 @@
-[build]
-incremental = false
-
 [package]
 name = "datacollect-cli"
 version = "0.1.0"
