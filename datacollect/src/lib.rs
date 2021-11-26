@@ -4,3 +4,5 @@
 pub mod common;
 pub mod modules;
 pub mod schema_org;
+
+pub use futures::stream;

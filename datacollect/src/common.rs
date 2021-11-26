@@ -165,8 +165,39 @@ impl<const COOKIES: bool> Default for Client<COOKIES> {
     }
 }
 
+/// Checks if all the characters in `needle` can be found in `haystack` in the same order.
+///
+/// Some platforms like to obfuscate certain visible text fields from bots.
+/// For example, eBay makes it more difficult to identify sponsored items by using several
+/// `display: none;` fields.
+/// A human may read the text as `Sponsored`, while a robot may read it as `ddSQpOonhsortied`,
+/// because the extra characters are actually their own `<span>`'s that are not displayed in a browser.
+/// This is presumably to make it harder to automatically block sponsored listings from appearing using extensions.
+pub(crate) fn has_hidden_word(needle: &str, haystack: &str) -> bool {
+    haystack
+        .chars()
+        .fold(needle, |acc, c| {
+            if acc.is_empty() {
+                /* we've finished! */
+                acc
+            } else {
+                /* check if the first chars match. */
+                if c == acc.chars().next().unwrap() {
+                    /* they matched! now just chop off the first char of the needle */
+                    &acc[1..]
+                } else {
+                    /* they didn't match. this char must have been added to fool us! */
+                    acc
+                }
+            }
+        })
+        .is_empty()
+}
+
 #[cfg(test)]
 mod tests {
+    use super::has_hidden_word;
+
     use super::parse_dollars;
 
     fn roughly_equal(a: f64, b: f64) -> bool {
@@ -209,5 +240,17 @@ mod tests {
         assert_eq!(parse_dollars("8.8.4.4"), None);
         assert_eq!(parse_dollars("42").unwrap(), 42.00);
         assert_eq!(parse_dollars("$42.567").unwrap(), 42.567);
+    }
+
+    #[test]
+    fn test_has_hidden_word() {
+        assert_eq!(has_hidden_word("cookie", "cooOOOkie"), true);
+        assert_eq!(has_hidden_word("cookie", "cookie"), true);
+        assert_eq!(has_hidden_word("cookie", "423TGRcoAFoGRkHiDSDGRTe"), true);
+        assert_eq!(
+            has_hidden_word("baking cookies", "some cookie baking"),
+            false
+        );
+        assert_eq!(has_hidden_word("candy canes", "candy"), false);
     }
 }

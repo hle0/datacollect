@@ -23,11 +23,13 @@ run_impl_enum!(QueryType, self, ser, {
 
 mod product {
     use crate::run_impl_enum;
+    use datacollect::stream::StreamExt;
     use structopt::StructOpt;
 
     #[derive(StructOpt)]
     pub(super) enum SubCommand {
         Id { id: u64 },
+        Search { query: String, limit: usize },
     }
 
     run_impl_enum!(SubCommand, self, ser, {
@@ -36,6 +38,16 @@ mod product {
                 erased_serde::serialize(
                     &datacollect::modules::ebay::Product::by_id(&mut Default::default(), *id)
                         .await?,
+                    ser,
+                )?;
+            }
+            Self::Search { query, limit } => {
+                erased_serde::serialize(
+                    &datacollect::modules::ebay::Product::search(query)
+                        .filter_map(|r| async move { r.ok() })
+                        .take(*limit)
+                        .collect::<Vec<_>>()
+                        .await,
                     ser,
                 )?;
             }
