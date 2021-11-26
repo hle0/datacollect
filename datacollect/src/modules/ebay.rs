@@ -241,6 +241,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_search() {
         let products = Product::search("cpu").take(20).collect::<Vec<_>>().await;
         let products = products
