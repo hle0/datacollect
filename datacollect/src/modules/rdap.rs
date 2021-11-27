@@ -18,6 +18,13 @@ pub struct DomainRecord {
 }
 
 impl DomainRecord {
+    /// Get the record for a given domain.
+    /// # Errors
+    /// Errors if sending the request failed, or if the JSON the server responded with could not be read or parsed.
+    /// # Returns
+    /// If the response was a 404, `Ok(None)` is returned. This means that the domain was probably never registered,
+    /// or maybe that the TLD was invalid.
+    /// Otherwise, the JSON is parsed, and wrapped in `Ok(Some(...))`.
     pub async fn get(client: &mut Client<false>, domain: &str) -> anyhow::Result<Option<Self>> {
         let res = client
             .0
@@ -37,6 +44,7 @@ impl DomainRecord {
         events
     }
 
+    /// Returns whether the domain is/was/will be "locked" at the given time per RFC7483.
     pub fn is_locked_at(&self, now: &DateTime<Utc>) -> bool {
         self.events_in_time_backwards()
             .iter()
@@ -49,6 +57,7 @@ impl DomainRecord {
             .unwrap_or(false)
     }
 
+    /// Returns whether the domain is/was (will be?) registered at the given time.
     pub fn is_registered_at(&self, now: &DateTime<Utc>) -> bool {
         self.events_in_time_backwards()
             .iter()
@@ -61,6 +70,10 @@ impl DomainRecord {
             .unwrap_or(false)
     }
 
+    /// Returns whether the domain is/was/will be unlocked and unregistered at the given time.
+    /// Note that this doesn't check if the TLD can actually be purchased
+    /// (e.g. `.gov` domains cannot be purchased by most people), but *only* that it
+    /// is unregistered and unlocked.
     pub fn is_buyable_at(&self, now: &DateTime<Utc>) -> bool {
         // presumably, locked domains cannot be bought or expire. TODO: figure out definitively
         // also TODO: there doesn't seem to be an easy source to find which TLDs are unrestricted.
@@ -89,6 +102,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_random() {
+        // This domain will almost certainly not exist.
         let domain = format!("{}.net", rand::random::<[u8; 10]>().encode_hex::<String>());
         let record = DomainRecord::get(&mut Default::default(), domain.as_str())
             .await

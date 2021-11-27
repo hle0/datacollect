@@ -3,12 +3,14 @@ use serde::{de::Visitor, Deserialize, Serialize};
 use serde_with::{DeserializeAs, DeserializeFromStr, SerializeDisplay};
 use std::{convert::TryFrom, fmt::Display, marker::PhantomData, str::FromStr};
 
+/// A currency - some type of money.
 #[derive(SerializeDisplay, DeserializeFromStr)]
 pub enum Currency {
     USD,
 }
 
 impl Currency {
+    /// Given a price with a currency symbol and an amount, try to extract a [`Currency`] from the symbol.
     pub fn from_price<S: AsRef<str>>(s: S) -> Option<Self> {
         s.as_ref()
             .split(|c: char| c.is_whitespace() || c.is_numeric())
@@ -19,6 +21,8 @@ impl Currency {
             })
     }
 
+    /// Given an abbreviation/symbol, try to return the corresponding [`Currency`].
+    /// Only considers alphabetic characters - `$` is filtered out, for example.
     pub fn from_abbreviation<S: AsRef<str>>(s: S) -> Option<Self> {
         match s
             .as_ref()
@@ -56,13 +60,15 @@ impl Display for Currency {
     }
 }
 
-/*
- * Convert something like "$312.03" to 312.03
- * "$312.03" -> 312.03
- * "312.03"  -> 312.03
- * "312"     -> 312.0
- * "312.009" -> 312.009
- */
+/// Convert something like "$312.03" to 312.03
+///
+/// ## Example
+/// ```txt
+/// "$312.03" -> 312.03
+/// "312.03"  -> 312.03
+/// "312"     -> 312.0  
+/// "312.009" -> 312.009
+/// ```
 pub(crate) fn parse_dollars<T: AsRef<str>>(s: T) -> Option<f64> {
     s.as_ref()
         .chars()
@@ -72,6 +78,8 @@ pub(crate) fn parse_dollars<T: AsRef<str>>(s: T) -> Option<f64> {
         .ok()
 }
 
+/// Currency ([`Currency`]), and some amount of it ([`f64`]).
+/// Currently, money with no [`Currency`] is assumed to be USD.
 #[derive(Serialize, Deserialize)]
 pub struct Money(Currency, f64);
 
@@ -106,6 +114,8 @@ impl TryFrom<crate::schema_org::Scope> for Money {
     }
 }
 
+/// Ignore commas when parsing number formats.
+/// e.g. 13,096,340.3 -> 13096340.3
 pub struct IgnoreComma<T>
 where
     T: FromStr,
@@ -143,7 +153,7 @@ where
             }
 
             fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                /* I really wish the error message could be implemented better */
+                /* TODO: I really wish the error message could be implemented better */
                 formatter.write_fmt(format_args!("a FromStr (probably number), ignoring commas"))
             }
         }
@@ -152,6 +162,11 @@ where
     }
 }
 
+/// A wrapped [`reqwest::Client`].
+/// Some scrapers require cookies, while some don't need cookies.
+/// This struct takes advantage of Rust's static typing to make sure
+/// that scrapers that require cookies are never given a [`reqwest::Client`]
+/// that does not have a cookie jar.
 pub struct Client<const COOKIES: bool>(pub reqwest::Client);
 
 impl<const COOKIES: bool> Default for Client<COOKIES> {

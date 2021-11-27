@@ -18,16 +18,23 @@ pub struct Seller {
     pub feedback: Option<f64>,
 }
 
+/// A single eBay product.
 #[derive(Serialize, Default)]
 pub struct Product {
+    /// The title of the product.
     pub name: String,
+    /// The seller, if available.
     pub seller: Option<Seller>,
+    /// The price before shipping, if available.
     pub price: Option<Money>,
+    /// Whether this item was from a sponsored listing.
+    /// This option is only filled (and only makes sense) when the [`Product`]
+    /// comes from certain endpoints, e.g. [`Product::search`].
     pub sponsored: Option<bool>,
 }
 
 impl Product {
-    /// Find an eBay product using it's item ID.
+    /// Find an eBay product using its item ID.
     ///
     /// # Errors
     /// Errors if one of the requests failed, or if one of the responses could not be parsed.
@@ -117,6 +124,21 @@ impl Product {
         product
     }
 
+    /// Search for products given a query string.
+    ///
+    /// This endpoint will wait a few hundred milliseconds between product
+    /// requests to avoid being IP banned.
+    ///
+    /// # Returns
+    /// Returns a [`Stream`] of [`anyhow::Result<Self>`].
+    ///
+    /// The stream terminates when one or both of the following:
+    ///
+    /// - Getting the next search results page returns an error
+    /// - All results on one page return errors
+    ///
+    /// Results listing page errors are not returned, but product pages themselves are
+    /// (through the returned stream).
     pub fn search(query: &str) -> impl Stream<Item = anyhow::Result<Self>> + '_ {
         lazy_static! {
             static ref RE_ITM: regex::Regex =
@@ -213,7 +235,7 @@ impl Product {
 
         stream_stream
             .take_while(|r| futures::future::ready(r.is_ok()))
-            .then(|r| futures::future::ready(r.unwrap()))
+            .filter_map(|r| futures::future::ready(r.ok()))
             .flatten()
     }
 }
