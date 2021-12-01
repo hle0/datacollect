@@ -1,9 +1,3 @@
-#![feature(try_blocks)]
-#![feature(result_into_ok_or_err)]
+pub use datacollect_core as core;
 
-pub mod common;
-pub mod modules;
-pub mod schema_org;
-
-pub use chrono;
-pub use futures::stream;
+pub use datacollect_core::{chrono, modules, stream};

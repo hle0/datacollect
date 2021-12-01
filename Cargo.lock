@@ -252,20 +252,7 @@ dependencies = [
 name = "datacollect"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "async-trait",
- "chrono",
- "futures",
- "hex",
- "kuchiki",
- "lazy_static",
- "maplit",
- "rand 0.8.4",
- "regex",
- "reqwest",
- "serde",
- "serde_with",
- "tokio",
+ "datacollect-core",
 ]
 
 [[package]]
@@ -280,6 +267,26 @@ dependencies = [
  "serde",
  "serde_json",
  "structopt",
+ "tokio",
+]
+
+[[package]]
+name = "datacollect-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "futures",
+ "hex",
+ "kuchiki",
+ "lazy_static",
+ "maplit",
+ "rand 0.8.4",
+ "regex",
+ "reqwest",
+ "serde",
+ "serde_with",
  "tokio",
 ]
 
