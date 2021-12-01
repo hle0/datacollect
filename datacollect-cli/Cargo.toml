@@ -6,7 +6,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-datacollect = { path = "../datacollect" }
+datacollect = { path = "../datacollect", features = [ "extras" ] }
 structopt = "0.3"
 serde = { version = "1.0", features = [ "derive" ] }
 erased-serde = "0.3"

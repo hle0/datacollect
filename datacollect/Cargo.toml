@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 datacollect-core = { path = "../datacollect-core" }
+
+[features]
+extras = []

@@ -5,5 +5,6 @@ pub mod common;
 pub mod modules;
 pub mod schema_org;
 
+pub use anyhow;
 pub use chrono;
 pub use futures::stream;
